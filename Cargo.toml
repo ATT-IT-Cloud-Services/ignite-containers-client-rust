@@ -1,0 +1,22 @@
+[package]
+name = "ignite-containers-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Async Rust client for the Ignite Containers control plane API"
+repository = "https://github.com/ATT-IT-Cloud-Services/ignite-containers-client-rust"
+authors = ["Ignite Containers Contributors"]
+readme = "README.md"
+
+[dependencies]
+ignite-containers-core.workspace = true
+ignite-containers-proto.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
