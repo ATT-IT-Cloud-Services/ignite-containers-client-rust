@@ -2,7 +2,7 @@
 name = "ignite-containers-client"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+license = "LicenseRef-ATT-IT-AS-IS-COMMERCIAL"
 description = "Async Rust client for the Ignite Containers control plane API"
 repository = "https://github.com/ATT-IT-Cloud-Services/ignite-containers-client-rust"
 authors = ["Ignite Containers Contributors"]
