@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout private source monorepo
+        uses: actions/checkout@v4
+        with:
+          repository: ATT-IT-Cloud-Services/ignite-containers-monorepo
+          token: ${{ secrets.MONOREPO_TOKEN }}
+          path: monorepo
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: monorepo
+      - run: cargo test --locked --manifest-path monorepo/Cargo.toml -p ignite-containers-client
