@@ -1,19 +1,17 @@
 # Rust client
 
-`ignite-containers-client` is an async client for the Ignite Containers control plane. It reuses the
-`ignite-containers-core` domain types, so requests and responses are type-checked against the
-same definitions the server uses.
+`ignite-containers-client` is a standalone async client for the Ignite Containers
+control plane. It does **not** depend on any other Ignite Containers crate: all
+public request and response types are defined inside the client crate.
 
 ```toml
 [dependencies]
-ignite-containers-client = { path = "../../clients/rust" }
-ignite-containers-core = { path = "../../crates/ignite-containers-core" }
+ignite-containers-client = { git = "https://github.com/ATT-IT-Cloud-Services/ignite-containers-client-rust", tag = "v1.0.0" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
 ```rust
-use ignite_containers_client::{Client, CreateServer, ServerQuery};
-use ignite_containers_core::job::PowerSignal;
+use ignite_containers_client::{Client, CreateServer, PowerSignal, ServerQuery};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

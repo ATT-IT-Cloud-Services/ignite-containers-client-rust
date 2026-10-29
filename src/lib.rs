@@ -10,26 +10,15 @@
 //! ```
 
 use chrono::{DateTime, Utc};
-use ignite_containers_core::ids::{
-    AllocationId, ApiKeyId, DatabaseHostId, NodeId, ServerId, TemplateId,
-};
-use ignite_containers_core::job::{Job, PowerSignal};
-use ignite_containers_core::limits::{Limits, NodeCapacity};
-use ignite_containers_core::models::{
-    Allocation, ApiKey, AuditEvent, Backup, DatabaseHost, EmailMessage, Node, NodeDriver,
-    PortProtocol, ProxyRoute, ProxyTls, Schedule, ScheduleAction, Server, ServerDatabase,
-    ServerDetail, ServerState, SftpCredential,
-};
-use ignite_containers_core::template::{
-    AutoUpdate, Channel, Template, TemplateRecord, TemplateVersionRecord,
-};
-use ignite_containers_proto::{FileContent, FileEntry, FileList, NodeState};
 use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::time::Duration;
+
+mod types;
+pub use types::*;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -188,7 +177,7 @@ pub struct BulkResult {
     pub server_id: ServerId,
     pub success: bool,
     pub error: Option<String>,
-    pub job_id: Option<ignite_containers_core::ids::JobId>,
+    pub job_id: Option<JobId>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -590,7 +579,7 @@ pub struct CreateDatabaseHost {
 #[derive(Debug, Default, Serialize)]
 pub struct CreateServerDatabase {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub host_id: Option<ignite_containers_core::ids::DatabaseHostId>,
+    pub host_id: Option<DatabaseHostId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remote: Option<String>,
 }
@@ -758,18 +747,12 @@ impl Client {
 
     // host updates ---------------------------------------------------------
 
-    pub async fn node_updates(
-        &self,
-        id: NodeId,
-    ) -> Result<ignite_containers_proto::HostUpdateStatus, Error> {
+    pub async fn node_updates(&self, id: NodeId) -> Result<HostUpdateStatus, Error> {
         self.send(Method::GET, &format!("/api/v1/nodes/{id}/updates"), None)
             .await
     }
 
-    pub async fn check_node_updates(
-        &self,
-        id: NodeId,
-    ) -> Result<ignite_containers_proto::HostUpdateStatus, Error> {
+    pub async fn check_node_updates(&self, id: NodeId) -> Result<HostUpdateStatus, Error> {
         let body = serde_json::json!({});
         self.send(
             Method::POST,
@@ -817,10 +800,7 @@ impl Client {
             .await
     }
 
-    pub async fn delete_database_host(
-        &self,
-        id: ignite_containers_core::ids::DatabaseHostId,
-    ) -> Result<(), Error> {
+    pub async fn delete_database_host(&self, id: DatabaseHostId) -> Result<(), Error> {
         self.send_empty(
             Method::DELETE,
             &format!("/api/v1/database-hosts/{id}"),
@@ -829,10 +809,7 @@ impl Client {
         .await
     }
 
-    pub async fn test_database_host(
-        &self,
-        id: ignite_containers_core::ids::DatabaseHostId,
-    ) -> Result<DatabaseHostTest, Error> {
+    pub async fn test_database_host(&self, id: DatabaseHostId) -> Result<DatabaseHostTest, Error> {
         let body = serde_json::json!({});
         self.send(
             Method::POST,
@@ -873,7 +850,7 @@ impl Client {
     pub async fn delete_server_database(
         &self,
         server_id: ServerId,
-        database_id: ignite_containers_core::ids::ServerDatabaseId,
+        database_id: ServerDatabaseId,
     ) -> Result<(), Error> {
         self.send_empty(
             Method::DELETE,
@@ -916,7 +893,7 @@ impl Client {
     pub async fn revoke_sftp_credential(
         &self,
         server_id: ServerId,
-        credential_id: ignite_containers_core::ids::SftpCredentialId,
+        credential_id: SftpCredentialId,
     ) -> Result<(), Error> {
         self.send_empty(
             Method::DELETE,
@@ -950,10 +927,7 @@ impl Client {
         Ok(list.emails)
     }
 
-    pub async fn retry_email(
-        &self,
-        id: ignite_containers_core::ids::EmailId,
-    ) -> Result<EmailMessage, Error> {
+    pub async fn retry_email(&self, id: EmailId) -> Result<EmailMessage, Error> {
         let body = serde_json::json!({});
         self.send(
             Method::POST,
@@ -1024,7 +998,7 @@ impl Client {
     pub async fn delete_backup(
         &self,
         server_id: ServerId,
-        backup_id: ignite_containers_core::ids::BackupId,
+        backup_id: BackupId,
     ) -> Result<(), Error> {
         self.send_empty(
             Method::DELETE,
@@ -1037,7 +1011,7 @@ impl Client {
     pub async fn restore_backup(
         &self,
         server_id: ServerId,
-        backup_id: ignite_containers_core::ids::BackupId,
+        backup_id: BackupId,
     ) -> Result<Backup, Error> {
         let body = serde_json::json!({});
         self.send(
@@ -1051,7 +1025,7 @@ impl Client {
     pub async fn download_backup(
         &self,
         server_id: ServerId,
-        backup_id: ignite_containers_core::ids::BackupId,
+        backup_id: BackupId,
     ) -> Result<Vec<u8>, Error> {
         let response = self
             .http
@@ -1100,7 +1074,7 @@ impl Client {
 
     pub async fn update_schedule(
         &self,
-        schedule_id: ignite_containers_core::ids::ScheduleId,
+        schedule_id: ScheduleId,
         request: &UpdateSchedule,
     ) -> Result<Schedule, Error> {
         let body = serde_json::to_value(request)?;
@@ -1112,10 +1086,7 @@ impl Client {
         .await
     }
 
-    pub async fn delete_schedule(
-        &self,
-        schedule_id: ignite_containers_core::ids::ScheduleId,
-    ) -> Result<(), Error> {
+    pub async fn delete_schedule(&self, schedule_id: ScheduleId) -> Result<(), Error> {
         self.send_empty(
             Method::DELETE,
             &format!("/api/v1/schedules/{schedule_id}"),
@@ -1124,10 +1095,7 @@ impl Client {
         .await
     }
 
-    pub async fn run_schedule(
-        &self,
-        schedule_id: ignite_containers_core::ids::ScheduleId,
-    ) -> Result<Value, Error> {
+    pub async fn run_schedule(&self, schedule_id: ScheduleId) -> Result<Value, Error> {
         let body = serde_json::json!({});
         self.send(
             Method::POST,
@@ -1432,11 +1400,7 @@ impl Client {
         .await
     }
 
-    pub async fn logs(
-        &self,
-        id: ServerId,
-        lines: u32,
-    ) -> Result<ignite_containers_proto::LogChunk, Error> {
+    pub async fn logs(&self, id: ServerId, lines: u32) -> Result<LogChunk, Error> {
         self.send(
             Method::GET,
             &format!("/api/v1/servers/{id}/logs?lines={}", lines.clamp(1, 2000)),
@@ -1445,7 +1409,7 @@ impl Client {
         .await
     }
 
-    pub async fn stats(&self, id: ServerId) -> Result<ignite_containers_proto::ServerStats, Error> {
+    pub async fn stats(&self, id: ServerId) -> Result<ServerStats, Error> {
         self.send(Method::GET, &format!("/api/v1/servers/{id}/stats"), None)
             .await
     }
