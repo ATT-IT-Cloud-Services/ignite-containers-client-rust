@@ -800,6 +800,8 @@ pub struct WriteFile {
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoding: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub etag: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

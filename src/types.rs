@@ -1013,6 +1013,8 @@ pub struct FileContent {
     pub size: u64,
     #[serde(default)]
     pub truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub etag: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
