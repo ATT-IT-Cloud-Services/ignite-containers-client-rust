@@ -1770,6 +1770,253 @@ pub struct RawUsage {
     pub samples: Vec<UsageSample>,
 }
 
+// billing report ---------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingCoverage {
+    pub requested_from_ms: i64,
+    pub requested_to_ms: i64,
+    pub effective_from_ms: i64,
+    pub effective_to_ms: i64,
+    #[serde(default)]
+    pub first_sample_ms: Option<i64>,
+    #[serde(default)]
+    pub last_sample_ms: Option<i64>,
+    pub interval_seconds: u64,
+    pub gaps: u32,
+    pub complete: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingVolumeTotals {
+    pub count: u64,
+    pub attached_count: u64,
+    pub unattached_count: u64,
+    pub provisioned_byte_seconds: u64,
+    pub used_bytes: u64,
+    pub used_byte_seconds: u64,
+    pub ingress_bytes: u64,
+    pub egress_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingPortTotals {
+    pub declared_current: u64,
+    pub allocated_current: u64,
+    pub forwarded_current: u64,
+    pub port_seconds: u64,
+    pub created: u64,
+    pub updated: u64,
+    pub deleted: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingBuildTotals {
+    pub count: u64,
+    pub succeeded: u64,
+    pub failed: u64,
+    pub running: u64,
+    pub queued: u64,
+    pub cancelled: u64,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingImageTotals {
+    pub count: u64,
+    pub stored_bytes: u64,
+    pub copy_bytes: u64,
+    pub pull_bytes: u64,
+    pub pull_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingTotals {
+    pub pod_usage: UsageWindow,
+    pub volumes: BillingVolumeTotals,
+    pub ports: BillingPortTotals,
+    pub builds: BillingBuildTotals,
+    pub images: BillingImageTotals,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingDeclaredPort {
+    pub port_id: uuid::Uuid,
+    pub container_port: u16,
+    #[serde(default)]
+    pub host_ip: Option<String>,
+    #[serde(default)]
+    pub host_port: Option<u16>,
+    pub protocol: String,
+    pub exposure: String,
+    #[serde(default)]
+    pub label: Option<String>,
+    pub created_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingAllocatedPort {
+    pub allocation_id: uuid::Uuid,
+    pub ip: String,
+    pub port: u16,
+    pub protocol: String,
+    pub primary: bool,
+    #[serde(default)]
+    pub label: Option<String>,
+    pub created_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingForwardedPort {
+    pub forward_id: uuid::Uuid,
+    pub external_ip: String,
+    pub external_port: u16,
+    pub protocol: String,
+    pub internal_ip: String,
+    pub internal_port: u16,
+    #[serde(default)]
+    pub label: Option<String>,
+    pub created_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingPodPorts {
+    pub declared_current: u64,
+    pub allocated_current: u64,
+    pub forwarded_current: u64,
+    pub port_seconds: u64,
+    pub created: u64,
+    pub updated: u64,
+    pub deleted: u64,
+    #[serde(default)]
+    pub declared: Vec<BillingDeclaredPort>,
+    #[serde(default)]
+    pub allocated: Vec<BillingAllocatedPort>,
+    #[serde(default)]
+    pub forwarded: Vec<BillingForwardedPort>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingPod {
+    pub pod_id: uuid::Uuid,
+    pub resource_group_id: uuid::Uuid,
+    pub name: String,
+    #[serde(default)]
+    pub external_ref: Option<String>,
+    #[serde(default)]
+    pub reference_id: Option<String>,
+    pub coverage: BillingCoverage,
+    pub usage: UsageWindow,
+    pub ports: BillingPodPorts,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingVolumeMount {
+    pub pod_id: uuid::Uuid,
+    pub mount_path: String,
+    pub read_only: bool,
+    pub created_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingVolume {
+    pub volume_id: uuid::Uuid,
+    pub resource_group_id: uuid::Uuid,
+    pub name: String,
+    pub storage_class: String,
+    #[serde(default)]
+    pub reference_id: Option<String>,
+    pub provisioned_mb: u64,
+    pub max_size_mb: u64,
+    pub auto_scale: bool,
+    pub used_bytes: u64,
+    #[serde(default)]
+    pub last_used_at_ms: Option<i64>,
+    pub attached: bool,
+    #[serde(default)]
+    pub mounts: Vec<BillingVolumeMount>,
+    pub provisioned_byte_seconds: u64,
+    pub used_byte_seconds: u64,
+    pub ingress_bytes: u64,
+    pub egress_bytes: u64,
+    pub coverage: BillingCoverage,
+    pub used_coverage: BillingCoverage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingBuild {
+    pub build_id: uuid::Uuid,
+    pub source_id: uuid::Uuid,
+    pub pod_id: uuid::Uuid,
+    pub resource_group_id: uuid::Uuid,
+    pub status: String,
+    pub reference: String,
+    #[serde(default)]
+    pub commit_sha: Option<String>,
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub error: Option<String>,
+    pub created_at_ms: i64,
+    #[serde(default)]
+    pub started_at_ms: Option<i64>,
+    #[serde(default)]
+    pub finished_at_ms: Option<i64>,
+    #[serde(default)]
+    pub queue_ms: Option<u64>,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    pub coverage: BillingCoverage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingImage {
+    pub image_id: uuid::Uuid,
+    pub reference: String,
+    pub digest: String,
+    #[serde(default)]
+    pub reference_id: Option<String>,
+    pub owned_by_resource_group: bool,
+    pub stored_bytes: u64,
+    pub copy_bytes: u64,
+    pub pull_bytes: u64,
+    pub pull_count: u64,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingResourceGroup {
+    pub resource_group_id: uuid::Uuid,
+    pub tenant_id: uuid::Uuid,
+    pub name: String,
+    pub slug: String,
+    #[serde(default)]
+    pub reference_id: Option<String>,
+    pub coverage: BillingCoverage,
+    pub totals: BillingTotals,
+    #[serde(default)]
+    pub pods: Vec<BillingPod>,
+    #[serde(default)]
+    pub volumes: Vec<BillingVolume>,
+    #[serde(default)]
+    pub builds: Vec<BillingBuild>,
+    #[serde(default)]
+    pub images: Vec<BillingImage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingReport {
+    pub scope: String,
+    pub scope_id: uuid::Uuid,
+    pub from_ms: i64,
+    pub to_ms: i64,
+    pub coverage: BillingCoverage,
+    pub totals: BillingTotals,
+    #[serde(default)]
+    pub resource_groups: Vec<BillingResourceGroup>,
+}
+
 // jobs, transfer, webhooks ----------------------------------------------
 
 #[derive(Debug, Clone, Default)]

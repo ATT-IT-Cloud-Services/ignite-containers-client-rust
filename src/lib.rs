@@ -4149,6 +4149,24 @@ impl Client {
         .await
     }
 
+    pub async fn billing_report(
+        &self,
+        scope: &str,
+        scope_id: uuid::Uuid,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<BillingReport, Error> {
+        self.send(
+            Method::GET,
+            &format!(
+                "/api/v1/billing?scope={}&scope_id={scope_id}&from_ms={from_ms}&to_ms={to_ms}",
+                urlencoding(scope)
+            ),
+            None,
+        )
+        .await
+    }
+
     pub async fn list_metering_profiles(&self) -> Result<Vec<MeteringProfile>, Error> {
         self.send(Method::GET, "/api/v1/metering/profiles", None)
             .await

@@ -98,3 +98,14 @@ client.upload_file(pod_id, "server.properties", file).await?;
 Floating IPs, port forwards, webhooks, proxy adapters, VNets, interconnects,
 listeners and template nests all have first-class methods. See
 [`docs/API-COVERAGE.md`](../../docs/API-COVERAGE.md) for the full matrix.
+
+## Billing report
+
+```rust,no_run
+let report = client
+    .billing_report("tenant", tenant_id, from_ms, to_ms)
+    .await?;
+for group in &report.resource_groups {
+    println!("{:?} {:?}", group.totals.pod_usage, group.totals.volumes);
+}
+```
