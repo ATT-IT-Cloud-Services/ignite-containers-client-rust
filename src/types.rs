@@ -340,6 +340,9 @@ pub struct Pod {
     #[serde(default, skip_serializing)]
     pub environment: BTreeMap<String, String>,
     pub limits: Limits,
+    /// Per-pod stop override. `None` inherits the template runtime.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop: Option<StopConfig>,
     pub state: PodState,
     #[serde(default)]
     pub desired_running: bool,

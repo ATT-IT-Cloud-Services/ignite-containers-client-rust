@@ -466,6 +466,7 @@ impl CreatePod {
             image: None,
             variables: BTreeMap::new(),
             limits: None,
+            stop: None,
             allocations: Vec::new(),
             auto_allocations: Some(1),
             protocol: None,
@@ -495,6 +496,7 @@ impl CreatePod {
             image: None,
             variables: BTreeMap::new(),
             limits: None,
+            stop: None,
             allocations: Vec::new(),
             auto_allocations: Some(1),
             protocol: None,
@@ -577,6 +579,8 @@ pub struct CreatePod {
     pub variables: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limits: Option<Limits>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop: Option<StopConfig>,
     #[serde(default)]
     pub allocations: Vec<AllocationId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1237,8 +1241,10 @@ pub struct DeployCompose {
     pub node_id: Option<NodeId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub runtime_group_id: Option<RuntimeGroupId>,
-    #[serde(default)]
-    pub auto_start: bool,
+    /// `None` follows each service's Compose restart policy (default
+    /// `unless-stopped`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_start: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limits: Option<Limits>,
     #[serde(skip_serializing_if = "Option::is_none")]
