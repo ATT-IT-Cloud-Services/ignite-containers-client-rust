@@ -71,14 +71,15 @@ id_type!(NodeId);
 id_type!(AllocationId);
 id_type!(TemplateId);
 id_type!(TemplateVersionId);
-id_type!(ServerId);
+id_type!(PodId);
 id_type!(JobId);
 id_type!(DatabaseHostId);
-id_type!(ServerDatabaseId);
+id_type!(PodDatabaseId);
 id_type!(BackupId);
 id_type!(ScheduleId);
 id_type!(EmailId);
 id_type!(SftpCredentialId);
+id_type!(VnetId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Scope {
@@ -102,28 +103,28 @@ pub enum Scope {
     TemplateRead,
     #[serde(rename = "template:write")]
     TemplateWrite,
-    #[serde(rename = "server:read")]
-    ServerRead,
-    #[serde(rename = "server:write")]
-    ServerWrite,
-    #[serde(rename = "server:power")]
-    ServerPower,
-    #[serde(rename = "server:console")]
-    ServerConsole,
-    #[serde(rename = "server:files")]
-    ServerFiles,
-    #[serde(rename = "server:backup")]
-    ServerBackup,
+    #[serde(rename = "pod:read")]
+    PodRead,
+    #[serde(rename = "pod:write")]
+    PodWrite,
+    #[serde(rename = "pod:power")]
+    PodPower,
+    #[serde(rename = "pod:console")]
+    PodConsole,
+    #[serde(rename = "pod:files")]
+    PodFiles,
+    #[serde(rename = "pod:backup")]
+    PodBackup,
     #[serde(rename = "database:read")]
     DatabaseRead,
     #[serde(rename = "database:write")]
     DatabaseWrite,
-    #[serde(rename = "server:database")]
-    ServerDatabase,
-    #[serde(rename = "server:sftp")]
-    ServerSftp,
-    #[serde(rename = "server:secrets")]
-    ServerSecrets,
+    #[serde(rename = "pod:database")]
+    PodDatabase,
+    #[serde(rename = "pod:sftp")]
+    PodSftp,
+    #[serde(rename = "pod:secrets")]
+    PodSecrets,
     #[serde(rename = "notification:send")]
     NotificationSend,
     #[serde(rename = "notification:read")]
@@ -132,6 +133,38 @@ pub enum Scope {
     ProxyRead,
     #[serde(rename = "proxy:write")]
     ProxyWrite,
+    #[serde(rename = "webhook:read")]
+    WebhookRead,
+    #[serde(rename = "webhook:write")]
+    WebhookWrite,
+    #[serde(rename = "vnet:read")]
+    VnetRead,
+    #[serde(rename = "vnet:write")]
+    VnetWrite,
+    #[serde(rename = "ip:read")]
+    IpRead,
+    #[serde(rename = "ip:write")]
+    IpWrite,
+    #[serde(rename = "tenant:read")]
+    TenantRead,
+    #[serde(rename = "tenant:write")]
+    TenantWrite,
+    #[serde(rename = "tenant:create")]
+    TenantCreate,
+    #[serde(rename = "tenant:transfer")]
+    TenantTransfer,
+    #[serde(rename = "resource-group:read")]
+    ResourceGroupRead,
+    #[serde(rename = "resource-group:write")]
+    ResourceGroupWrite,
+    #[serde(rename = "metering:read")]
+    MeteringRead,
+    #[serde(rename = "metering:write")]
+    MeteringWrite,
+    #[serde(rename = "git:read")]
+    GitRead,
+    #[serde(rename = "git:write")]
+    GitWrite,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -229,6 +262,10 @@ pub struct Node {
     pub last_update_apply: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host_update_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_group_id: Option<RuntimeGroupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dedicated_tenant_id: Option<TenantId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -260,7 +297,7 @@ pub struct Allocation {
     pub port: u16,
     pub protocol: PortProtocol,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub server_id: Option<ServerId>,
+    pub pod_id: Option<PodId>,
     #[serde(default)]
     pub primary: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -270,7 +307,7 @@ pub struct Allocation {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ServerState {
+pub enum PodState {
     Installing,
     Offline,
     Starting,
@@ -282,8 +319,8 @@ pub enum ServerState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Server {
-    pub id: ServerId,
+pub struct Pod {
+    pub id: PodId,
     pub node_id: NodeId,
     pub template_id: TemplateId,
     pub template_version: String,
@@ -294,6 +331,8 @@ pub struct Server {
     pub external_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_by_key_id: Option<ApiKeyId>,
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
     pub image: String,
@@ -301,7 +340,7 @@ pub struct Server {
     #[serde(default, skip_serializing)]
     pub environment: BTreeMap<String, String>,
     pub limits: Limits,
-    pub state: ServerState,
+    pub state: PodState,
     #[serde(default)]
     pub desired_running: bool,
     #[serde(default)]
@@ -319,10 +358,24 @@ pub struct Server {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerDetail {
+pub struct PodDetail {
     #[serde(flatten)]
-    pub server: Server,
+    pub pod: Pod,
     pub allocations: Vec<Allocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmation: Option<ProvisionConfirmation>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ApiKeyLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_pods: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_memory_mb: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_disk_mb: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_cpu_millis: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -332,7 +385,13 @@ pub struct ApiKey {
     pub prefix: String,
     pub scopes: ScopeSet,
     #[serde(default)]
-    pub server_ids: Vec<ServerId>,
+    pub pod_ids: Vec<PodId>,
+    #[serde(default)]
+    pub labels: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_per_minute: Option<u32>,
+    #[serde(default)]
+    pub limits: ApiKeyLimits,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -355,9 +414,9 @@ pub struct DatabaseHost {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerDatabase {
-    pub id: ServerDatabaseId,
-    pub server_id: ServerId,
+pub struct PodDatabase {
+    pub id: PodDatabaseId,
+    pub pod_id: PodId,
     pub host_id: DatabaseHostId,
     pub database_name: String,
     pub username: String,
@@ -377,7 +436,7 @@ pub enum BackupState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Backup {
     pub id: BackupId,
-    pub server_id: ServerId,
+    pub pod_id: PodId,
     pub name: String,
     pub bytes: u64,
     pub checksum: String,
@@ -411,6 +470,8 @@ pub enum JobKind {
     Reinstall,
     Sync,
     UpdateTemplate,
+    Transfer,
+    Rollout,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -423,12 +484,25 @@ pub enum JobStatus {
     Cancelled,
 }
 
+impl JobStatus {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            JobStatus::Queued => "queued",
+            JobStatus::Running => "running",
+            JobStatus::Succeeded => "succeeded",
+            JobStatus::Failed => "failed",
+            JobStatus::Cancelled => "cancelled",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
     pub id: JobId,
     pub node_id: NodeId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub server_id: Option<ServerId>,
+    pub pod_id: Option<PodId>,
     pub kind: JobKind,
     #[serde(default)]
     pub payload: serde_json::Value,
@@ -468,7 +542,7 @@ pub struct ScheduleAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Schedule {
     pub id: ScheduleId,
-    pub server_id: ServerId,
+    pub pod_id: PodId,
     pub name: String,
     pub cron: String,
     pub actions: Vec<ScheduleAction>,
@@ -483,7 +557,7 @@ pub struct Schedule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SftpCredential {
     pub id: SftpCredentialId,
-    pub server_id: ServerId,
+    pub pod_id: PodId,
     pub username: String,
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -555,10 +629,88 @@ pub enum ProxyTls {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Vnet {
+    pub id: VnetId,
+    pub name: String,
+    pub cidr: String,
+    pub gateway: String,
+    pub scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<NodeId>,
+    #[serde(default)]
+    pub internal: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VnetAttachment {
+    pub id: uuid::Uuid,
+    pub vnet_id: VnetId,
+    pub pod_id: PodId,
+    pub ip: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Interconnect {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub vnet_id: VnetId,
+    pub pod_ids: Vec<PodId>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyListener {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub node_id: NodeId,
+    pub bind_ip: String,
+    pub port: u16,
+    pub protocol: String,
+    pub adapter: String,
+    pub real_ip: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub velocity_secret: Option<String>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyListenerRoute {
+    pub id: uuid::Uuid,
+    pub listener_id: uuid::Uuid,
+    pub match_kind: String,
+    pub match_value: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream_port: Option<u16>,
+    #[serde(default)]
+    pub auto_start: bool,
+    #[serde(default)]
+    pub offline_motd: String,
+    #[serde(default)]
+    pub queue_timeout_seconds: u32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyRoute {
     pub id: uuid::Uuid,
     pub domain: String,
     pub upstream: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_port: Option<u16>,
     pub tls: ProxyTls,
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -568,6 +720,34 @@ pub struct ProxyRoute {
 
 fn default_true() -> bool {
     true
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyCertificateStatus {
+    Valid,
+    Expiring,
+    Expired,
+    NotYetValid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyCertificate {
+    pub id: uuid::Uuid,
+    pub domain: String,
+    pub certificate_pem: String,
+    pub subject: String,
+    pub issuer: String,
+    pub san: Vec<String>,
+    pub serial: String,
+    pub fingerprint_sha256: String,
+    pub not_before: DateTime<Utc>,
+    pub not_after: DateTime<Utc>,
+    pub chain_length: u32,
+    pub days_remaining: i64,
+    pub status: ProxyCertificateStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -866,8 +1046,8 @@ pub struct VolumeMount {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DesiredServer {
-    pub id: ServerId,
+pub struct DesiredPod {
+    pub id: PodId,
     pub name: String,
     pub image: String,
     pub startup: RenderedCommand,
@@ -893,20 +1073,20 @@ pub struct NodeState {
     pub node_id: NodeId,
     pub revision: i64,
     pub generated_at: DateTime<Utc>,
-    pub servers: Vec<DesiredServer>,
+    pub pods: Vec<DesiredPod>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogChunk {
-    pub server_id: ServerId,
+    pub pod_id: PodId,
     pub cursor: String,
     pub lines: Vec<String>,
     pub truncated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerStats {
-    pub server_id: ServerId,
+pub struct PodStats {
+    pub pod_id: PodId,
     pub cpu_percent: f64,
     pub memory_bytes: u64,
     pub memory_limit_bytes: u64,
@@ -916,7 +1096,7 @@ pub struct ServerStats {
     pub network_tx_bytes: u64,
     pub pids: u64,
     pub uptime_seconds: u64,
-    pub state: ServerState,
+    pub state: PodState,
     pub sampled_at: DateTime<Utc>,
 }
 
@@ -936,4 +1116,1480 @@ pub struct HostUpdateStatus {
     pub applied_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_error: Option<String>,
+}
+
+// runtime groups --------------------------------------------------------
+
+id_type!(RuntimeGroupId);
+id_type!(IpAddressId);
+id_type!(PortForwardId);
+id_type!(ProxyAdapterId);
+id_type!(ConfirmationId);
+id_type!(WebhookId);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeGroup {
+    pub id: RuntimeGroupId,
+    pub slug: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<TenantId>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfirmationStatus {
+    Pending,
+    Installing,
+    Created,
+    Started,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProvisionConfirmation {
+    pub id: ConfirmationId,
+    pub pod_id: PodId,
+    pub node_id: NodeId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_group_id: Option<RuntimeGroupId>,
+    pub auto_start: bool,
+    pub status: ConfirmationStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub success: Option<bool>,
+    #[serde(default)]
+    pub message: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// addresses and port forwards ------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IpKind {
+    Shared,
+    Floating,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FloatingMode {
+    Nat,
+    Direct,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IpAddress {
+    pub id: IpAddressId,
+    pub ip: String,
+    pub prefix: u8,
+    pub kind: IpKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<NodeId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_ip: Option<String>,
+    pub mode: FloatingMode,
+    #[serde(default)]
+    pub primary: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortForward {
+    pub id: PortForwardId,
+    pub node_id: NodeId,
+    pub pod_id: PodId,
+    pub external_ip: String,
+    pub external_port: u16,
+    pub protocol: PortProtocol,
+    pub internal_ip: String,
+    pub internal_port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AddressQuery {
+    pub node_id: Option<NodeId>,
+    pub pod_id: Option<PodId>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateIp {
+    pub ip: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prefix: Option<u8>,
+    pub kind: IpKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<NodeId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<FloatingMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+impl CreateIp {
+    #[must_use]
+    pub fn new(ip: impl Into<String>, kind: IpKind) -> Self {
+        Self {
+            ip: ip.into(),
+            prefix: None,
+            kind,
+            node_id: None,
+            pod_id: None,
+            target_ip: None,
+            mode: None,
+            primary: None,
+            label: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct UpdateIp {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<NodeId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    #[serde(default)]
+    pub unbind: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<FloatingMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub clear_label: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct BindIp {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip_id: Option<IpAddressId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<FloatingMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateForward {
+    pub external_ip: String,
+    pub external_port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<PortProtocol>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_ip: Option<String>,
+    pub internal_port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct UpdateForward {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<PortProtocol>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub clear_label: bool,
+}
+
+// platform --------------------------------------------------------------
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlatformSpec {
+    #[serde(default)]
+    pub prometheus: PrometheusSpec,
+    #[serde(default)]
+    pub keda: KedaSpec,
+    #[serde(default)]
+    pub knative: KnativeSpec,
+    #[serde(default)]
+    pub argocd: ArgoCdSpec,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrometheusSpec {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_metrics_path")]
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(default = "default_interval")]
+    pub interval: String,
+    #[serde(default = "default_scheme")]
+    pub scheme: String,
+}
+
+impl Default for PrometheusSpec {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            path: default_metrics_path(),
+            port: None,
+            interval: default_interval(),
+            scheme: default_scheme(),
+        }
+    }
+}
+
+fn default_metrics_path() -> String {
+    "/metrics".to_string()
+}
+fn default_interval() -> String {
+    "30s".to_string()
+}
+fn default_scheme() -> String {
+    "http".to_string()
+}
+fn default_max_replicas() -> u32 {
+    5
+}
+fn default_polling() -> u32 {
+    30
+}
+fn default_cooldown() -> u32 {
+    300
+}
+fn default_platform_timeout() -> u32 {
+    300
+}
+fn default_visibility() -> String {
+    "external".to_string()
+}
+fn default_project() -> String {
+    "default".to_string()
+}
+fn default_revision() -> String {
+    "HEAD".to_string()
+}
+fn default_argocd_namespace() -> String {
+    "argocd".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KedaSpec {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub min_replicas: u32,
+    #[serde(default = "default_max_replicas")]
+    pub max_replicas: u32,
+    #[serde(default = "default_polling")]
+    pub polling_interval_seconds: u32,
+    #[serde(default = "default_cooldown")]
+    pub cooldown_seconds: u32,
+    #[serde(default)]
+    pub triggers: Vec<KedaTrigger>,
+}
+
+impl Default for KedaSpec {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            min_replicas: 0,
+            max_replicas: default_max_replicas(),
+            polling_interval_seconds: default_polling(),
+            cooldown_seconds: default_cooldown(),
+            triggers: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KedaTrigger {
+    #[serde(rename = "type")]
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metric_type: Option<String>,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnativeSpec {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub min_scale: u32,
+    #[serde(default = "default_max_replicas")]
+    pub max_scale: u32,
+    #[serde(default)]
+    pub concurrency: u32,
+    #[serde(default = "default_platform_timeout")]
+    pub timeout_seconds: u32,
+    #[serde(default = "default_visibility")]
+    pub visibility: String,
+}
+
+impl Default for KnativeSpec {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            min_scale: 0,
+            max_scale: default_max_replicas(),
+            concurrency: 0,
+            timeout_seconds: default_platform_timeout(),
+            visibility: default_visibility(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArgoCdSpec {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_project")]
+    pub project: String,
+    #[serde(default)]
+    pub repo_url: String,
+    #[serde(default)]
+    pub path: String,
+    #[serde(default = "default_revision")]
+    pub target_revision: String,
+    #[serde(default = "default_argocd_namespace")]
+    pub namespace: String,
+    #[serde(default)]
+    pub manage_workload: bool,
+    #[serde(default = "default_true")]
+    pub automated: bool,
+}
+
+impl Default for ArgoCdSpec {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            project: default_project(),
+            repo_url: String::new(),
+            path: String::new(),
+            target_revision: default_revision(),
+            namespace: default_argocd_namespace(),
+            manage_workload: false,
+            automated: true,
+        }
+    }
+}
+
+// autonomous updates ----------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateSourceKind {
+    DockerImage,
+    GithubTag,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateSource {
+    pub kind: UpdateSourceKind,
+    pub reference: String,
+    #[serde(default)]
+    pub tag: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dockerfile: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RetentionMode {
+    Sliding,
+    PinOldest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Activation {
+    Immediate,
+    HoldLatest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetentionPolicy {
+    pub mode: RetentionMode,
+    pub keep: u32,
+}
+
+impl Default for RetentionPolicy {
+    fn default() -> Self {
+        Self {
+            mode: RetentionMode::Sliding,
+            keep: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RolloutPolicy {
+    pub steps: Vec<u8>,
+    pub step_seconds: u32,
+}
+
+impl Default for RolloutPolicy {
+    fn default() -> Self {
+        Self {
+            steps: vec![10, 50, 100],
+            step_seconds: 30,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePolicy {
+    pub enabled: bool,
+    pub interval_seconds: u32,
+    pub sources: Vec<UpdateSource>,
+    pub rollout: RolloutPolicy,
+    pub retention: RetentionPolicy,
+    pub activation: Activation,
+}
+
+impl Default for UpdatePolicy {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_seconds: 300,
+            sources: Vec::new(),
+            rollout: RolloutPolicy::default(),
+            retention: RetentionPolicy::default(),
+            activation: Activation::Immediate,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Revision {
+    pub id: uuid::Uuid,
+    pub source: String,
+    pub reference: String,
+    pub version: String,
+    pub image: String,
+    pub status: String,
+    pub pinned: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Rollout {
+    pub id: uuid::Uuid,
+    pub revision_id: uuid::Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<uuid::Uuid>,
+    pub weight: u8,
+    pub status: String,
+    #[serde(default)]
+    pub message: String,
+    #[serde(default)]
+    pub step_index: i32,
+}
+
+// metering --------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MeterUnit {
+    Times,
+    Tokens,
+}
+
+impl MeterUnit {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MeterUnit::Times => "times",
+            MeterUnit::Tokens => "tokens",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeterView {
+    pub scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_id: Option<uuid::Uuid>,
+    pub unit: MeterUnit,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MeterViewRequest {
+    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_id: Option<uuid::Uuid>,
+    pub unit: MeterUnit,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsumptionLine {
+    pub meter: String,
+    pub quantity: u64,
+    pub unit: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Consumption {
+    pub unit: MeterUnit,
+    pub lines: Vec<ConsumptionLine>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UsageWindow {
+    #[serde(default)]
+    pub interval_seconds: u64,
+    #[serde(default)]
+    pub gaps: u32,
+    #[serde(default)]
+    pub cpu_millis_seconds: u64,
+    #[serde(default)]
+    pub memory_byte_seconds: u64,
+    #[serde(default)]
+    pub disk_byte_seconds: u64,
+    #[serde(default)]
+    pub io_bytes: u64,
+    #[serde(default)]
+    pub net_internal_bytes: u64,
+    #[serde(default)]
+    pub net_external_bytes: u64,
+    #[serde(default)]
+    pub net_ingress_bytes: u64,
+    #[serde(default)]
+    pub net_egress_bytes: u64,
+    #[serde(default)]
+    pub net_unsplit_bytes: u64,
+    #[serde(default)]
+    pub image_storage_byte_seconds: u64,
+    #[serde(default)]
+    pub storage_byte_seconds: u64,
+    #[serde(default)]
+    pub storage_ingress_bytes: u64,
+    #[serde(default)]
+    pub storage_egress_bytes: u64,
+    #[serde(default)]
+    pub image_pull_bytes: u64,
+    #[serde(default)]
+    pub image_pull_count: u64,
+    #[serde(default)]
+    pub replica_seconds: u64,
+    #[serde(default)]
+    pub cold_starts: u64,
+    #[serde(default)]
+    pub at_rest_seconds: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodUsage {
+    pub pod_id: uuid::Uuid,
+    pub unit: MeterUnit,
+    pub consumption: Consumption,
+    pub usage: UsageWindow,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageSummary {
+    pub subject: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<uuid::Uuid>,
+    pub from: DateTime<Utc>,
+    pub to: DateTime<Utc>,
+    pub unit: MeterUnit,
+    pub consumption: Consumption,
+    pub usage: UsageWindow,
+    #[serde(default)]
+    pub pods: Vec<PodUsage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageSample {
+    pub sampled_at: DateTime<Utc>,
+    pub cpu_millis: u32,
+    pub memory_bytes: u64,
+    pub disk_bytes: u64,
+    pub replicas: u32,
+    pub at_rest: bool,
+    #[serde(default)]
+    pub block_read_bytes: u64,
+    #[serde(default)]
+    pub block_write_bytes: u64,
+    #[serde(default)]
+    pub net_rx_bytes: u64,
+    #[serde(default)]
+    pub net_tx_bytes: u64,
+    #[serde(default)]
+    pub net_internal_rx_bytes: u64,
+    #[serde(default)]
+    pub net_internal_tx_bytes: u64,
+    #[serde(default)]
+    pub network_split: bool,
+    #[serde(default)]
+    pub autoscaler: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawUsage {
+    pub pod_id: uuid::Uuid,
+    #[serde(default)]
+    pub samples: Vec<UsageSample>,
+}
+
+// jobs, transfer, webhooks ----------------------------------------------
+
+#[derive(Debug, Clone, Default)]
+pub struct JobQuery {
+    pub status: Option<JobStatus>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TransferRequest {
+    pub node_id: NodeId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drain_seconds: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferAccepted {
+    pub job: Job,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WebhookDeliveryStatus {
+    Pending,
+    Delivered,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookSubscription {
+    pub id: WebhookId,
+    pub url: String,
+    #[serde(default)]
+    pub events: Vec<String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatedWebhook {
+    #[serde(flatten)]
+    pub webhook: WebhookSubscription,
+    pub secret: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookDelivery {
+    pub id: uuid::Uuid,
+    pub subscription_id: WebhookId,
+    pub event_type: String,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+    pub status: WebhookDeliveryStatus,
+    #[serde(default)]
+    pub attempts: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivered_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateWebhook {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub events: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct UpdateWebhook {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub events: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+// proxy adapters --------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdapterProtocol {
+    Tcp,
+    Udp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyAdapter {
+    pub id: ProxyAdapterId,
+    pub name: String,
+    pub slug: String,
+    pub protocol: AdapterProtocol,
+    pub endpoint: String,
+    pub timeout_ms: u32,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuiltinAdapter {
+    pub slug: String,
+    pub name: String,
+    pub protocol: AdapterProtocol,
+    #[serde(default)]
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AdapterList {
+    #[serde(default)]
+    pub builtin: Vec<BuiltinAdapter>,
+    #[serde(default)]
+    pub custom: Vec<ProxyAdapter>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateAdapter {
+    pub name: String,
+    pub slug: String,
+    pub protocol: AdapterProtocol,
+    pub endpoint: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+// tenants, resource groups and transfers -------------------------------
+
+id_type!(TenantId);
+id_type!(ResourceGroupId);
+id_type!(TransferKeyId);
+id_type!(TenantTransferId);
+id_type!(MeteringProfileId);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TenantStatus {
+    Active,
+    Suspended,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tenant {
+    pub id: TenantId,
+    pub name: String,
+    pub slug: String,
+    #[serde(default)]
+    pub description: String,
+    pub status: TenantStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    #[serde(default)]
+    pub limits: ApiKeyLimits,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceGroup {
+    pub id: ResourceGroupId,
+    pub tenant_id: TenantId,
+    pub name: String,
+    pub slug: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferKeyStatus {
+    Active,
+    Used,
+    Revoked,
+    Expired,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferKey {
+    pub id: TransferKeyId,
+    pub tenant_id: TenantId,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_by_key_id: Option<ApiKeyId>,
+    pub status: TransferKeyStatus,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub used_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub used_by_resource_group_id: Option<ResourceGroupId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatedTransferKey {
+    #[serde(flatten)]
+    pub key: TransferKey,
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TenantTransferStatus {
+    Queued,
+    Waiting,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TenantTransfer {
+    pub id: TenantTransferId,
+    pub resource_group_id: ResourceGroupId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_tenant_id: Option<TenantId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_tenant_id: Option<TenantId>,
+    pub status: TenantTransferStatus,
+    #[serde(default)]
+    pub pending: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dismissed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MeterScopeKind {
+    Global,
+    Container,
+    ResourceGroup,
+    Tenant,
+    DeploymentClass,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeteringProfile {
+    pub id: MeteringProfileId,
+    pub scope: MeterScopeKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_id: Option<uuid::Uuid>,
+    pub formula: String,
+    #[serde(default)]
+    pub bill_internal_traffic: bool,
+    pub version: i64,
+    pub effective_from: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageValue {
+    pub scope: String,
+    pub scope_id: uuid::Uuid,
+    pub from_ms: i64,
+    pub to_ms: i64,
+    pub unit: String,
+    pub times: UsageWindow,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokens_exact: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cutover_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReferenceAggregate {
+    pub reference_id: String,
+    pub tenants: Vec<Tenant>,
+    pub resource_groups: Vec<ResourceGroup>,
+    pub pods: Vec<serde_json::Value>,
+}
+
+// pod port bindings --------------------------------------------------
+
+id_type!(PodPortId);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PortExposure {
+    Public,
+    Internal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodPort {
+    pub id: PodPortId,
+    pub pod_id: PodId,
+    pub container_port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_ip: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_port: Option<u16>,
+    pub protocol: PortProtocol,
+    pub exposure: PortExposure,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComposeConverted {
+    pub stack_toml: String,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+// images ----------------------------------------------------------------
+
+id_type!(ImageId);
+id_type!(ImageCopyId);
+id_type!(ImagePullId);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageSource {
+    Pull,
+    Upload,
+    Build,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Image {
+    pub id: ImageId,
+    pub reference: String,
+    pub digest: String,
+    pub source: ImageSource,
+    #[serde(default)]
+    pub compressed_bytes: u64,
+    #[serde(default)]
+    pub stored_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    #[serde(default)]
+    pub labels: BTreeMap<String, String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageCopy {
+    pub id: ImageCopyId,
+    pub image_id: ImageId,
+    pub node_id: NodeId,
+    #[serde(default)]
+    pub size_bytes: u64,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImagePull {
+    pub id: ImagePullId,
+    pub image_id: ImageId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<NodeId>,
+    pub registry: String,
+    pub reference: String,
+    pub digest: String,
+    #[serde(default)]
+    pub bytes: u64,
+    #[serde(default)]
+    pub duration_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+// git -------------------------------------------------------------------
+
+id_type!(GitCredentialId);
+id_type!(GitSourceId);
+id_type!(BuildId);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GitProvider {
+    Github,
+    Gitlab,
+    Gitea,
+    Generic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GitAuthKind {
+    Ssh,
+    Token,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitCredential {
+    pub id: GitCredentialId,
+    pub tenant_id: TenantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    pub name: String,
+    pub provider: GitProvider,
+    pub auth: GitAuthKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GitRefKind {
+    Branch,
+    Tag,
+    Commit,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitSource {
+    pub id: GitSourceId,
+    pub resource_group_id: ResourceGroupId,
+    pub pod_id: PodId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_id: Option<GitCredentialId>,
+    pub name: String,
+    pub provider: GitProvider,
+    pub repo: String,
+    pub reference: String,
+    pub ref_kind: GitRefKind,
+    pub dockerfile: String,
+    pub context: String,
+    #[serde(default)]
+    pub build_args: BTreeMap<String, String>,
+    pub auto_update: bool,
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatedGitSource {
+    #[serde(flatten)]
+    pub source: GitSource,
+    pub webhook_secret: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildStatus {
+    Queued,
+    Running,
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitBuild {
+    pub id: BuildId,
+    pub source_id: GitSourceId,
+    pub resource_group_id: ResourceGroupId,
+    pub pod_id: PodId,
+    pub status: BuildStatus,
+    pub reference: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub logs: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<JobId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision_id: Option<uuid::Uuid>,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<DateTime<Utc>>,
+}
+
+// metrics storage -------------------------------------------------------
+
+id_type!(MetricsStoragePolicyId);
+id_type!(MetricsArchiveId);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsStoragePolicy {
+    pub id: MetricsStoragePolicyId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<TenantId>,
+    pub local_enabled: bool,
+    pub local_retention_days: i32,
+    pub archive_after_days: i32,
+    pub total_retention_days: i32,
+    pub local_buffer_minutes: i32,
+    pub deletion_grace_days: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s3_bucket: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s3_prefix: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s3_region: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s3_endpoint: Option<String>,
+    #[serde(default)]
+    pub s3_configured: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsArchive {
+    pub id: MetricsArchiveId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<TenantId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    pub from_ms: i64,
+    pub to_ms: i64,
+    pub format: String,
+    pub object_key: String,
+    pub rows: u64,
+    pub bytes: u64,
+    pub checksum: String,
+    pub schema_version: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsArchiveReport {
+    #[serde(default)]
+    pub tenant_id: Option<uuid::Uuid>,
+    pub archived_samples: u64,
+    pub archives: u64,
+    pub object_keys: Vec<String>,
+    pub deleted_local_samples: u64,
+    pub deleted_total_samples: u64,
+    pub deleted_archives: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComposeDeployedService {
+    pub service: String,
+    pub pod_id: uuid::Uuid,
+    pub node_id: uuid::Uuid,
+    pub image: String,
+    #[serde(default)]
+    pub ports: Vec<PodPort>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComposeDeployResult {
+    pub stack: String,
+    pub pods: Vec<ComposeDeployedService>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+// storage ---------------------------------------------------------------
+
+id_type!(StorageBackendId);
+id_type!(VolumeId);
+id_type!(PodVolumeMountId);
+id_type!(ExternalDatabaseId);
+id_type!(PodExternalDatabaseId);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageBackendKind {
+    Nfs,
+    Smb,
+    S3,
+    Iscsi,
+    Csi,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageBackend {
+    pub id: StorageBackendId,
+    pub tenant_id: TenantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    pub name: String,
+    pub kind: StorageBackendKind,
+    pub endpoint: String,
+    #[serde(default)]
+    pub options: BTreeMap<String, String>,
+    #[serde(default)]
+    pub secret_configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VolumeAccessMode {
+    ReadWriteOnce,
+    ReadOnlyMany,
+    ReadWriteMany,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VolumeStorageClass {
+    S3,
+    File,
+    Block,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Volume {
+    pub id: VolumeId,
+    pub resource_group_id: ResourceGroupId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_id: Option<StorageBackendId>,
+    #[serde(default = "default_storage_class_client")]
+    pub storage_class: VolumeStorageClass,
+    pub name: String,
+    pub size_mb: u64,
+    pub access_mode: VolumeAccessMode,
+    #[serde(default = "default_true_client")]
+    pub auto_scale: bool,
+    #[serde(default = "default_max_volume_client")]
+    pub max_size_mb: u64,
+    #[serde(default)]
+    pub used_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gateway_token_id: Option<StorageGatewayTokenId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubernetes_storage_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+fn default_storage_class_client() -> VolumeStorageClass {
+    VolumeStorageClass::File
+}
+fn default_true_client() -> bool {
+    true
+}
+fn default_max_volume_client() -> u64 {
+    1_048_576
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodVolumeMount {
+    pub id: PodVolumeMountId,
+    pub pod_id: PodId,
+    pub volume_id: VolumeId,
+    pub mount_path: String,
+    pub read_only: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodVolumeMountView {
+    #[serde(flatten)]
+    pub mount: PodVolumeMount,
+    pub volume: Volume,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExternalDatabaseEngine {
+    Mysql,
+    Mariadb,
+    Postgresql,
+    Mongodb,
+    Redis,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalDatabase {
+    pub id: ExternalDatabaseId,
+    pub tenant_id: TenantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    pub name: String,
+    pub engine: ExternalDatabaseEngine,
+    pub host: String,
+    pub port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub database_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub password_configured: bool,
+    #[serde(default)]
+    pub options: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodExternalDatabase {
+    pub id: PodExternalDatabaseId,
+    pub pod_id: PodId,
+    pub database_id: ExternalDatabaseId,
+    pub env_prefix: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodExternalDatabaseView {
+    #[serde(flatten)]
+    pub binding: PodExternalDatabase,
+    pub database: ExternalDatabase,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseTest {
+    pub reachable: bool,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodPortEvent {
+    pub id: uuid::Uuid,
+    pub pod_id: PodId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port_id: Option<PodPortId>,
+    pub container_port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_ip: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_port: Option<u16>,
+    pub protocol: PortProtocol,
+    pub exposure: PortExposure,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub action: String,
+    pub recorded_at: DateTime<Utc>,
+}
+
+id_type!(StorageGatewayTokenId);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageGatewayToken {
+    pub id: StorageGatewayTokenId,
+    pub tenant_id: TenantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<ResourceGroupId>,
+    pub backend_id: StorageBackendId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume_id: Option<VolumeId>,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prefix: Option<String>,
+    #[serde(default)]
+    pub read_only: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_key: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatedStorageGatewayToken {
+    #[serde(flatten)]
+    pub record: StorageGatewayToken,
+    pub token: String,
+    pub secret_key: String,
 }
