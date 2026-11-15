@@ -109,3 +109,11 @@ for group in &report.resource_groups {
     println!("{:?} {:?}", group.totals.pod_usage, group.totals.volumes);
 }
 ```
+
+## Build measurements
+
+```rust,no_run
+let live = client.build_usage(build_id, None, None).await?;
+println!("{:?} {:?}", live.current, live.usage);
+let samples = client.build_usage_samples(build_id, None, None).await?;
+```

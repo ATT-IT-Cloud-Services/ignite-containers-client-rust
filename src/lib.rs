@@ -3805,6 +3805,58 @@ impl Client {
             .await
     }
 
+    pub async fn build_usage(
+        &self,
+        id: uuid::Uuid,
+        from_ms: Option<i64>,
+        to_ms: Option<i64>,
+    ) -> Result<BuildUsageReport, Error> {
+        let mut query = Vec::new();
+        if let Some(value) = from_ms {
+            query.push(format!("from_ms={value}"));
+        }
+        if let Some(value) = to_ms {
+            query.push(format!("to_ms={value}"));
+        }
+        let suffix = if query.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", query.join("&"))
+        };
+        self.send(
+            Method::GET,
+            &format!("/api/v1/git/builds/{id}/usage{suffix}"),
+            None,
+        )
+        .await
+    }
+
+    pub async fn build_usage_samples(
+        &self,
+        id: uuid::Uuid,
+        from_ms: Option<i64>,
+        to_ms: Option<i64>,
+    ) -> Result<BuildUsageSamples, Error> {
+        let mut query = Vec::new();
+        if let Some(value) = from_ms {
+            query.push(format!("from_ms={value}"));
+        }
+        if let Some(value) = to_ms {
+            query.push(format!("to_ms={value}"));
+        }
+        let suffix = if query.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", query.join("&"))
+        };
+        self.send(
+            Method::GET,
+            &format!("/api/v1/git/builds/{id}/usage/samples{suffix}"),
+            None,
+        )
+        .await
+    }
+
     // images ---------------------------------------------------------------
 
     pub async fn list_images(&self) -> Result<Vec<Image>, Error> {

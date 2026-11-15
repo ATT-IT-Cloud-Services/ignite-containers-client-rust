@@ -1819,6 +1819,17 @@ pub struct BillingBuildTotals {
     pub queued: u64,
     pub cancelled: u64,
     pub duration_ms: u64,
+    pub measured_count: u64,
+    pub build_ms: u64,
+    pub cpu_millis: u64,
+    pub memory_byte_seconds: u64,
+    pub max_peak_memory_bytes: u64,
+    pub disk_read_bytes: u64,
+    pub disk_write_bytes: u64,
+    pub network_rx_bytes: u64,
+    pub network_tx_bytes: u64,
+    pub context_bytes: u64,
+    pub image_bytes: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1966,6 +1977,8 @@ pub struct BillingBuild {
     pub queue_ms: Option<u64>,
     #[serde(default)]
     pub duration_ms: Option<u64>,
+    #[serde(default)]
+    pub usage: Option<BuildUsage>,
     pub coverage: BillingCoverage,
 }
 
@@ -2517,6 +2530,92 @@ pub enum BuildStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildUsageSample {
+    pub sampled_at: DateTime<Utc>,
+    #[serde(default)]
+    pub driver: String,
+    #[serde(default)]
+    pub measurement: String,
+    #[serde(default)]
+    pub wall_ms: u64,
+    #[serde(default)]
+    pub cpu_millis: u64,
+    #[serde(default)]
+    pub memory_bytes: u64,
+    #[serde(default)]
+    pub disk_read_bytes: u64,
+    #[serde(default)]
+    pub disk_write_bytes: u64,
+    #[serde(default)]
+    pub network_rx_bytes: u64,
+    #[serde(default)]
+    pub network_tx_bytes: u64,
+    #[serde(default)]
+    pub final_sample: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildUsage {
+    #[serde(default)]
+    pub driver: String,
+    #[serde(default)]
+    pub measurement: String,
+    #[serde(default)]
+    pub wall_ms: u64,
+    #[serde(default)]
+    pub setup_ms: u64,
+    #[serde(default)]
+    pub clone_ms: u64,
+    #[serde(default)]
+    pub build_ms: u64,
+    #[serde(default)]
+    pub cpu_millis: u64,
+    #[serde(default)]
+    pub memory_byte_seconds: u64,
+    #[serde(default)]
+    pub peak_memory_bytes: u64,
+    #[serde(default)]
+    pub disk_read_bytes: u64,
+    #[serde(default)]
+    pub disk_write_bytes: u64,
+    #[serde(default)]
+    pub network_rx_bytes: u64,
+    #[serde(default)]
+    pub network_tx_bytes: u64,
+    #[serde(default)]
+    pub context_bytes: u64,
+    #[serde(default)]
+    pub image_bytes: u64,
+    #[serde(default)]
+    pub sample_count: u64,
+    #[serde(default)]
+    pub first_sample_ms: Option<i64>,
+    #[serde(default)]
+    pub last_sample_ms: Option<i64>,
+    #[serde(default)]
+    pub gaps: u32,
+    #[serde(default)]
+    pub complete: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildUsageReport {
+    pub build_id: uuid::Uuid,
+    pub from_ms: i64,
+    pub to_ms: i64,
+    pub usage: BuildUsage,
+    #[serde(default)]
+    pub current: Option<BuildUsageSample>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildUsageSamples {
+    pub build_id: uuid::Uuid,
+    #[serde(default)]
+    pub samples: Vec<BuildUsageSample>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitBuild {
     pub id: BuildId,
     pub source_id: GitSourceId,
@@ -2541,6 +2640,8 @@ pub struct GitBuild {
     pub started_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finished_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build_usage: Option<BuildUsage>,
 }
 
 // metrics storage -------------------------------------------------------
