@@ -1819,10 +1819,20 @@ pub struct BillingBuildTotals {
     pub queued: u64,
     pub cancelled: u64,
     pub duration_ms: u64,
+    #[serde(default)]
+    pub duration_micros: u64,
     pub measured_count: u64,
     pub build_ms: u64,
+    #[serde(default)]
+    pub build_micros: u64,
     pub cpu_millis: u64,
+    #[serde(default)]
+    pub cpu_micros: u64,
     pub memory_byte_seconds: u64,
+    #[serde(default)]
+    pub memory_byte_millis: u64,
+    #[serde(default)]
+    pub memory_byte_micros: String,
     pub max_peak_memory_bytes: u64,
     pub disk_read_bytes: u64,
     pub disk_write_bytes: u64,
@@ -1976,7 +1986,11 @@ pub struct BillingBuild {
     #[serde(default)]
     pub queue_ms: Option<u64>,
     #[serde(default)]
+    pub queue_micros: Option<u64>,
+    #[serde(default)]
     pub duration_ms: Option<u64>,
+    #[serde(default)]
+    pub duration_micros: Option<u64>,
     #[serde(default)]
     pub usage: Option<BuildUsage>,
     pub coverage: BillingCoverage,
@@ -2539,7 +2553,11 @@ pub struct BuildUsageSample {
     #[serde(default)]
     pub wall_ms: u64,
     #[serde(default)]
+    pub wall_micros: u64,
+    #[serde(default)]
     pub cpu_millis: u64,
+    #[serde(default)]
+    pub cpu_micros: u64,
     #[serde(default)]
     pub memory_bytes: u64,
     #[serde(default)]
@@ -2563,15 +2581,29 @@ pub struct BuildUsage {
     #[serde(default)]
     pub wall_ms: u64,
     #[serde(default)]
+    pub wall_micros: u64,
+    #[serde(default)]
     pub setup_ms: u64,
+    #[serde(default)]
+    pub setup_micros: u64,
     #[serde(default)]
     pub clone_ms: u64,
     #[serde(default)]
+    pub clone_micros: u64,
+    #[serde(default)]
     pub build_ms: u64,
+    #[serde(default)]
+    pub build_micros: u64,
     #[serde(default)]
     pub cpu_millis: u64,
     #[serde(default)]
+    pub cpu_micros: u64,
+    #[serde(default)]
     pub memory_byte_seconds: u64,
+    #[serde(default)]
+    pub memory_byte_millis: u64,
+    #[serde(default)]
+    pub memory_byte_micros: String,
     #[serde(default)]
     pub peak_memory_bytes: u64,
     #[serde(default)]
