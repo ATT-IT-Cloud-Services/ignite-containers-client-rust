@@ -2,7 +2,7 @@
 //!
 //! ```no_run
 //! # async fn run() -> Result<(), ignite_containers_client::Error> {
-//! let client = ignite_containers_client::Client::new("https://games.example.com", "ic_...")?;
+//! let client = ignite_containers_client::Client::new("https://api.example.com", "ic_...")?;
 //! let pods = client.list_pods(ignite_containers_client::PodQuery::default()).await?;
 //! println!("{} pods", pods.len());
 //! # Ok(())
@@ -725,6 +725,77 @@ pub struct CloneTemplate {
     pub auto_allocations: Option<u8>,
     #[serde(default)]
     pub restore_files: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CreateRelay {
+    pub name: String,
+    pub vnet_id: uuid::Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<NodeId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<uuid::Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub listen_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distribution: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_pod_ids: Option<Vec<uuid::Uuid>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weights: Option<BTreeMap<String, u32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub startup: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sticky: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limits: Option<Limits>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UpdateRelay {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub listen_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distribution: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_pod_ids: Option<Vec<uuid::Uuid>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weights: Option<BTreeMap<String, u32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub startup: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clear_health_path: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sticky: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RelayList {
+    pub relays: Vec<crate::types::InternalRelay>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2483,6 +2554,46 @@ impl Client {
         .await
     }
 
+    pub async fn list_relays(&self) -> Result<Vec<crate::types::InternalRelay>, Error> {
+        let body: RelayList = self.send(Method::GET, "/api/v1/relays", None).await?;
+        Ok(body.relays)
+    }
+
+    pub async fn create_relay(
+        &self,
+        request: &CreateRelay,
+    ) -> Result<crate::types::RelayDetail, Error> {
+        self.send(
+            Method::POST,
+            "/api/v1/relays",
+            Some(&serde_json::to_value(request)?),
+        )
+        .await
+    }
+
+    pub async fn get_relay(&self, id: uuid::Uuid) -> Result<crate::types::RelayDetail, Error> {
+        self.send(Method::GET, &format!("/api/v1/relays/{id}"), None)
+            .await
+    }
+
+    pub async fn update_relay(
+        &self,
+        id: uuid::Uuid,
+        request: &UpdateRelay,
+    ) -> Result<crate::types::RelayDetail, Error> {
+        self.send(
+            Method::PATCH,
+            &format!("/api/v1/relays/{id}"),
+            Some(&serde_json::to_value(request)?),
+        )
+        .await
+    }
+
+    pub async fn delete_relay(&self, id: uuid::Uuid) -> Result<(), Error> {
+        self.send_empty(Method::DELETE, &format!("/api/v1/relays/{id}"), None)
+            .await
+    }
+
     pub async fn list_vnets(&self) -> Result<Vec<crate::types::Vnet>, Error> {
         let body: VnetList = self.send(Method::GET, "/api/v1/vnets", None).await?;
         Ok(body.vnets)
@@ -2969,6 +3080,39 @@ impl Client {
         self.send(
             Method::POST,
             &format!("/api/v1/pods/{id}/revisions/{revision_id}/pin"),
+            Some(&body),
+        )
+        .await
+    }
+
+    /// Activates one existing revision with a cutover strategy.
+    ///
+    /// `mode = "hard"` starts the revision in the background and switches at once
+    /// after `wait_seconds` (0 = immediate); `mode = "gradual"` moves traffic through
+    /// `steps` (increasing, last 100), each after `step_seconds`. The same call is the
+    /// rollback path for an older revision.
+    pub async fn activate_revision(
+        &self,
+        id: PodId,
+        revision_id: uuid::Uuid,
+        mode: &str,
+        steps: Option<&[u8]>,
+        step_seconds: Option<u32>,
+        wait_seconds: Option<u32>,
+    ) -> Result<Rollout, Error> {
+        let mut body = serde_json::json!({"mode": mode});
+        if let Some(steps) = steps {
+            body["steps"] = serde_json::json!(steps);
+        }
+        if let Some(step_seconds) = step_seconds {
+            body["step_seconds"] = serde_json::json!(step_seconds);
+        }
+        if let Some(wait_seconds) = wait_seconds {
+            body["wait_seconds"] = serde_json::json!(wait_seconds);
+        }
+        self.send(
+            Method::POST,
+            &format!("/api/v1/pods/{id}/revisions/{revision_id}/activate"),
             Some(&body),
         )
         .await

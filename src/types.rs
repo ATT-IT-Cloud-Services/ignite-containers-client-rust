@@ -656,6 +656,70 @@ pub struct VnetAttachment {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelayBackend {
+    pub pod_id: uuid::Uuid,
+    pub ip: String,
+    pub port: u16,
+    #[serde(default)]
+    pub weight: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelayContract {
+    pub listen: String,
+    pub protocol: String,
+    pub distribution: String,
+    pub profile: String,
+    #[serde(default)]
+    pub sticky: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub health_path: Option<String>,
+    pub vnet_id: uuid::Uuid,
+    pub backends: Vec<RelayBackend>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternalRelay {
+    pub id: uuid::Uuid,
+    pub pod_id: PodId,
+    pub vnet_id: VnetId,
+    pub node_id: NodeId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_group_id: Option<uuid::Uuid>,
+    pub name: String,
+    pub listen_port: u16,
+    pub backend_port: u16,
+    pub protocol: String,
+    pub distribution: String,
+    pub profile: String,
+    pub image: String,
+    pub startup: String,
+    pub membership: String,
+    #[serde(default)]
+    pub member_pods: Vec<PodId>,
+    #[serde(default)]
+    pub weights: BTreeMap<String, u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub health_path: Option<String>,
+    #[serde(default)]
+    pub sticky: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_route_id: Option<uuid::Uuid>,
+    #[serde(default)]
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelayDetail {
+    pub relay: InternalRelay,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    pub config: RelayContract,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Interconnect {
     pub id: uuid::Uuid,
     pub name: String,
