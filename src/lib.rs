@@ -3085,6 +3085,39 @@ impl Client {
         .await
     }
 
+    /// Activates one existing revision with a cutover strategy.
+    ///
+    /// `mode = "hard"` starts the revision in the background and switches at once
+    /// after `wait_seconds` (0 = immediate); `mode = "gradual"` moves traffic through
+    /// `steps` (increasing, last 100), each after `step_seconds`. The same call is the
+    /// rollback path for an older revision.
+    pub async fn activate_revision(
+        &self,
+        id: PodId,
+        revision_id: uuid::Uuid,
+        mode: &str,
+        steps: Option<&[u8]>,
+        step_seconds: Option<u32>,
+        wait_seconds: Option<u32>,
+    ) -> Result<Rollout, Error> {
+        let mut body = serde_json::json!({"mode": mode});
+        if let Some(steps) = steps {
+            body["steps"] = serde_json::json!(steps);
+        }
+        if let Some(step_seconds) = step_seconds {
+            body["step_seconds"] = serde_json::json!(step_seconds);
+        }
+        if let Some(wait_seconds) = wait_seconds {
+            body["wait_seconds"] = serde_json::json!(wait_seconds);
+        }
+        self.send(
+            Method::POST,
+            &format!("/api/v1/pods/{id}/revisions/{revision_id}/activate"),
+            Some(&body),
+        )
+        .await
+    }
+
     pub async fn get_rollout(&self, id: PodId) -> Result<Option<Rollout>, Error> {
         let status: RolloutStatus = self
             .send(Method::GET, &format!("/api/v1/pods/{id}/rollout"), None)
