@@ -2986,6 +2986,21 @@ impl Client {
         .await
     }
 
+    pub async fn move_pod_forward(
+        &self,
+        id: PodId,
+        forward_id: PortForwardId,
+        request: &MovePodForward,
+    ) -> Result<PortForward, Error> {
+        let body = serde_json::to_value(request)?;
+        self.send(
+            Method::POST,
+            &format!("/api/v1/pods/{id}/forwards/{forward_id}/move"),
+            Some(&body),
+        )
+        .await
+    }
+
     pub async fn delete_pod_forward(
         &self,
         id: PodId,
@@ -4095,6 +4110,21 @@ impl Client {
             )
             .await?;
         Ok(list.events)
+    }
+
+    pub async fn move_pod_port(
+        &self,
+        id: PodId,
+        port_id: PodPortId,
+        request: &MovePodPort,
+    ) -> Result<PodPort, Error> {
+        let body = serde_json::to_value(request)?;
+        self.send(
+            Method::POST,
+            &format!("/api/v1/pods/{id}/ports/{port_id}/move"),
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn delete_pod_port(&self, id: PodId, port_id: PodPortId) -> Result<(), Error> {

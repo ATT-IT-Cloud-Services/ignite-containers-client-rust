@@ -209,6 +209,7 @@ pub struct NodeCapacity {
 pub enum NodeDriver {
     Docker,
     Kubernetes,
+    Rusternetes,
 }
 
 impl NodeDriver {
@@ -217,6 +218,7 @@ impl NodeDriver {
         match self {
             NodeDriver::Docker => "docker",
             NodeDriver::Kubernetes => "kubernetes",
+            NodeDriver::Rusternetes => "rusternetes",
         }
     }
 }
@@ -1398,6 +1400,20 @@ pub struct UpdateForward {
     pub clear_label: bool,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct MovePodForward {
+    pub pod_id: uuid::Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_port: Option<u16>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MovePodPort {
+    pub pod_id: uuid::Uuid,
+}
+
 // platform --------------------------------------------------------------
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -1768,6 +1784,10 @@ pub struct UsageWindow {
     #[serde(default)]
     pub storage_egress_bytes: u64,
     #[serde(default)]
+    pub backup_storage_byte_seconds: u64,
+    #[serde(default)]
+    pub backup_count: u64,
+    #[serde(default)]
     pub image_pull_bytes: u64,
     #[serde(default)]
     pub image_pull_count: u64,
@@ -1916,12 +1936,24 @@ pub struct BillingImageTotals {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingBackupTotals {
+    pub count: u64,
+    pub current: u64,
+    pub created: u64,
+    pub completed: u64,
+    pub deleted: u64,
+    pub stored_bytes: u64,
+    pub stored_byte_seconds: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingTotals {
     pub pod_usage: UsageWindow,
     pub volumes: BillingVolumeTotals,
     pub ports: BillingPortTotals,
     pub builds: BillingBuildTotals,
     pub images: BillingImageTotals,
+    pub backups: BillingBackupTotals,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2077,6 +2109,22 @@ pub struct BillingImage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingBackup {
+    pub backup_id: uuid::Uuid,
+    pub pod_id: uuid::Uuid,
+    pub name: String,
+    pub stored_bytes: u64,
+    pub stored_byte_seconds: u64,
+    pub created_at_ms: i64,
+    #[serde(default)]
+    pub completed_at_ms: Option<i64>,
+    #[serde(default)]
+    pub deleted_at_ms: Option<i64>,
+    pub deleted: bool,
+    pub coverage: BillingCoverage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingResourceGroup {
     pub resource_group_id: uuid::Uuid,
     pub tenant_id: uuid::Uuid,
@@ -2094,6 +2142,8 @@ pub struct BillingResourceGroup {
     pub builds: Vec<BillingBuild>,
     #[serde(default)]
     pub images: Vec<BillingImage>,
+    #[serde(default)]
+    pub backups: Vec<BillingBackup>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3006,6 +3056,10 @@ pub struct PodPortEvent {
     pub label: Option<String>,
     pub action: String,
     pub recorded_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_pod_id: Option<PodId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_pod_id: Option<PodId>,
 }
 
 id_type!(StorageGatewayTokenId);
