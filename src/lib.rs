@@ -300,6 +300,21 @@ pub struct ProxyStatus {
     pub certificates: usize,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default)]
+    pub nodes: Vec<ProxyNodeStatus>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProxyNodeStatus {
+    pub node_id: uuid::Uuid,
+    pub node_name: String,
+    pub bind_ip: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub admin_url: Option<String>,
+    pub reachable: bool,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -313,6 +328,56 @@ pub struct ProxyReconcileResult {
     pub warning: Option<String>,
     #[serde(default)]
     pub caddy: Option<Value>,
+    #[serde(default)]
+    pub nodes: Vec<ProxyNodeApply>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyNodeApply {
+    pub node_id: uuid::Uuid,
+    pub node_name: String,
+    pub applied: bool,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyNodeList {
+    pub nodes: Vec<ProxyNodeStatus>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProxyNode {
+    pub node_id: NodeId,
+    pub admin_url: String,
+    pub bind_ip: String,
+    pub enabled: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UpsertProxyNode {
+    pub admin_url: String,
+    pub bind_ip: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyNodeMutation {
+    pub node: ProxyNode,
+    pub applied: bool,
+    #[serde(default)]
+    pub warning: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyNodeDeleteResult {
+    pub deleted: bool,
+    pub applied: bool,
+    #[serde(default)]
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -677,6 +742,48 @@ pub struct CreateListener {
     pub real_ip: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub velocity_secret: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UpdateListener {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bind_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub adapter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub real_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_secret: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UpdateListenerRoute {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub match_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub match_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pod_id: Option<PodId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_start: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offline_motd: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queue_timeout_seconds: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2509,6 +2616,35 @@ impl Client {
         self.send(Method::GET, "/api/v1/proxy/status", None).await
     }
 
+    pub async fn list_proxy_nodes(&self) -> Result<ProxyNodeList, Error> {
+        self.send(Method::GET, "/api/v1/proxy/nodes", None).await
+    }
+
+    pub async fn upsert_proxy_node(
+        &self,
+        node_id: uuid::Uuid,
+        request: &UpsertProxyNode,
+    ) -> Result<ProxyNodeMutation, Error> {
+        self.send(
+            Method::PUT,
+            &format!("/api/v1/proxy/nodes/{node_id}"),
+            Some(&serde_json::to_value(request)?),
+        )
+        .await
+    }
+
+    pub async fn delete_proxy_node(
+        &self,
+        node_id: uuid::Uuid,
+    ) -> Result<ProxyNodeDeleteResult, Error> {
+        self.send(
+            Method::DELETE,
+            &format!("/api/v1/proxy/nodes/{node_id}"),
+            None,
+        )
+        .await
+    }
+
     pub async fn reconcile_proxy(&self) -> Result<ProxyReconcileResult, Error> {
         self.send(Method::POST, "/api/v1/proxy/reconcile", None)
             .await
@@ -2659,6 +2795,19 @@ impl Client {
         .await
     }
 
+    pub async fn update_listener(
+        &self,
+        id: uuid::Uuid,
+        request: &UpdateListener,
+    ) -> Result<crate::types::ProxyListener, Error> {
+        self.send(
+            Method::PATCH,
+            &format!("/api/v1/proxy/listeners/{id}"),
+            Some(&serde_json::to_value(request)?),
+        )
+        .await
+    }
+
     pub async fn create_listener_route(
         &self,
         listener: uuid::Uuid,
@@ -2667,6 +2816,20 @@ impl Client {
         self.send(
             Method::POST,
             &format!("/api/v1/proxy/listeners/{listener}/routes"),
+            Some(&serde_json::to_value(request)?),
+        )
+        .await
+    }
+
+    pub async fn update_listener_route(
+        &self,
+        listener: uuid::Uuid,
+        route: uuid::Uuid,
+        request: &UpdateListenerRoute,
+    ) -> Result<crate::types::ProxyListenerRoute, Error> {
+        self.send(
+            Method::PATCH,
+            &format!("/api/v1/proxy/listeners/{listener}/routes/{route}"),
             Some(&serde_json::to_value(request)?),
         )
         .await
